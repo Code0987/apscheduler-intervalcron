@@ -12,7 +12,7 @@ except(IOError, ImportError):
 setup(
     name='apscheduler-intervalcron',
     packages=['intervalcron'],
-    version='0.0.1',
+    version='0.1.0',
     py_modules=['intervalcron'],
     install_requires=[
         'apscheduler',
