@@ -1,0 +1,6 @@
+apscheduler
+python-dateutil
+pytest
+pycodestyle
+pypandoc
+Sphinx
