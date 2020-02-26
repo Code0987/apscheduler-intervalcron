@@ -19,7 +19,6 @@ class IntervalCronTrigger(BaseTrigger):
     :param int months: number of months to wait
     :param int weeks: number of weeks to wait
     :param int days: number of days to wait
-    :param bool skip_initial: to skip the 1st hit or not (which most of the start_date itself)
 
     :param int|str day: day of the (1-31) or nth weekday (1st mon, 3rd fri,...)
     :param int|str day_of_week: number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)
@@ -37,10 +36,10 @@ class IntervalCronTrigger(BaseTrigger):
     :param int|None jitter: advance or delay the job execution by ``jitter`` seconds at most.
     """
 
-    __slots__ = 'interval', 'skip_initial', 'day', 'day_of_week', 'time', 'start_date', 'end_date', 'timezone', 'jitter'
+    __slots__ = 'interval', 'day', 'day_of_week', 'time', 'start_date', 'end_date', 'timezone', 'jitter'
 
     def __init__(self,
-                 months=0, weeks=0, days=0, skip_initial=None,
+                 months=0, weeks=0, days=0,
                  day=None, day_of_week=None,
                  hour=0, minute=0, second=0,
                  start_date=None, end_date=None, timezone=None, jitter=None
@@ -63,7 +62,6 @@ class IntervalCronTrigger(BaseTrigger):
 
         # Compute interval
         self.interval = relativedelta(months=months, weeks=weeks, days=days)
-        self.skip_initial = (skip_initial == True) or (skip_initial == 'true') or (skip_initial == 1)
 
         # Cron trigger
         self.day = day
@@ -74,12 +72,17 @@ class IntervalCronTrigger(BaseTrigger):
         # Jitter will be applied on final output
         self.jitter = jitter
 
-    def get_interval_next_fire_time(self, previous_fire_time, now):
-        next_fire_time = self.start_date
+    def get_interval_next_fire_time(self, previous_fire_time, now, can_cron):
+        next_fire_time = self.timezone.localize(
+            datetime.combine(self.start_date.date(), 
+            self.time))
 
-        while (next_fire_time + self.interval) < now:
+        while (next_fire_time + self.interval) <= now:
             next_fire_time += self.interval
-        if previous_fire_time is None and self.skip_initial:
+
+        # Shift to next interval
+        # if cannot cron, i.e. interval mode only
+        if (not can_cron):
             next_fire_time += self.interval
 
         return next_fire_time
@@ -99,6 +102,7 @@ class IntervalCronTrigger(BaseTrigger):
 
         cron_trigger = CronTrigger(
             day=self.day, day_of_week=self.day_of_week, 
+            hour=self.time.hour, minute=self.time.minute, second=self.time.second,
             start_date=now, end_date=end, timezone=self.timezone)
 
         cron_fire_time = cron_trigger.get_next_fire_time(now, now)
@@ -106,11 +110,13 @@ class IntervalCronTrigger(BaseTrigger):
         return cron_fire_time
 
     def get_next_fire_time(self, previous_fire_time, now):
+        can_cron = self.can_cron()
+
         # Get interval next fire time
-        next_fire_time = self.get_interval_next_fire_time(previous_fire_time, now)
+        next_fire_time = self.get_interval_next_fire_time(previous_fire_time, now, can_cron)
 
         # Cron
-        if self.can_cron():
+        if can_cron:
             # Get cron next fire time
             cron_fire_time = self.get_cron_next_fire_time(next_fire_time, now)
 
@@ -125,17 +131,12 @@ class IntervalCronTrigger(BaseTrigger):
             if not (cron_fire_time is None):
                 next_fire_time = cron_fire_time
 
-        # If cannot cron, shift to next interval if this is not 1st fire
-        elif not (previous_fire_time is None):
-            next_fire_time += self.interval
-
-        # Add time and timezone
-        next_fire_time = self.timezone.localize(datetime.combine(
-            next_fire_time.date(), 
-            self.time))
-
         # Apply jitter
-        return self._apply_jitter(next_fire_time, self.jitter, now)
+        next_fire_time = self._apply_jitter(next_fire_time, self.jitter, now)
+
+        # Check end date
+        if not self.end_date or next_fire_time <= self.end_date:
+            return self.timezone.normalize(next_fire_time)
 
     def __str__(self):
         return 'intervalcron[interval={}, day={}, day_of_week={}, time={}, start_date={}, end_date={}, timezone={}, jitter={}]'.format(self.interval, self.day, self.day_of_week, self.time, self.start_date, self.end_date, self.timezone, self.jitter)
