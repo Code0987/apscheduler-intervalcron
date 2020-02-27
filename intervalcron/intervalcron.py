@@ -82,7 +82,7 @@ class IntervalCronTrigger(BaseTrigger):
 
         # Shift to next interval
         # if cannot cron, i.e. interval mode only
-        if (not can_cron):
+        if not can_cron:
             next_fire_time += self.interval
 
         return next_fire_time
@@ -117,8 +117,10 @@ class IntervalCronTrigger(BaseTrigger):
 
         # Cron
         if can_cron:
+            cron_now = max(next_fire_time, now)
+
             # Get cron next fire time
-            cron_fire_time = self.get_cron_next_fire_time(next_fire_time, now)
+            cron_fire_time = self.get_cron_next_fire_time(next_fire_time, cron_now)
 
             # Add interval if cron fire time is null
             # this is for when cron hits last value within interval

@@ -1,15 +1,17 @@
 import pytest
 import time
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from tzlocal import get_localzone
 import pytz
 import pickle
 from pytz.tzinfo import DstTzInfo
+from apscheduler.util import convert_to_datetime
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from intervalcron import IntervalCronTrigger
 
-timezone = pytz.timezone('Asia/Kolkata')
+timezone = pytz.utc
 
 def test_everyday():
     now = timezone.localize(datetime(2020, 2, 1, 1, 0))
@@ -246,4 +248,16 @@ def test_large_gap_2():
 
     expected = timezone.localize(datetime(2020, 2, 17, 2, 0))
     actual = trigger.get_next_fire_time(timezone.localize(datetime(2020, 2, 3, 2, 3)), timezone.localize(datetime(2020, 2, 10, 7, 9)))
+    assert expected == actual
+
+def test_now():
+    start = timezone.localize(datetime.now())
+    trigger = IntervalCronTrigger(days=1, start_date=start, timezone=timezone)
+
+    expected = timezone.localize(datetime.combine(datetime.now().date(), time())) + timedelta(days=1)
+    actual = trigger.get_next_fire_time(None, start)
+    assert expected == actual
+
+    expected = timezone.localize(datetime.combine(start.date(), time())) + timedelta(days=2)
+    actual = trigger.get_next_fire_time(actual, actual + timedelta(minutes=5))
     assert expected == actual
