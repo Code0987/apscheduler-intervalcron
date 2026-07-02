@@ -144,7 +144,12 @@ def test_timezone_string():
 
 
 def test_timezone_zoneinfo():
-    from zoneinfo import ZoneInfo
+    # zoneinfo is stdlib on 3.9+; 3.8 needs backports.zoneinfo (via APScheduler stack)
+    try:
+        from zoneinfo import ZoneInfo
+    except ImportError:
+        ZoneInfo = pytest.importorskip('backports.zoneinfo').ZoneInfo
+
     z = ZoneInfo('UTC')
     start = datetime(2020, 2, 1, tzinfo=z)
     trigger = IntervalCronTrigger(days=1, hour=2, start_date=start, timezone=z)
