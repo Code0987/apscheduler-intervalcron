@@ -29,6 +29,59 @@ def test_everyday():
     actual = trigger.get_next_fire_time(actual, actual)
     assert expected == actual
 
+
+def test_start_date_required():
+    with pytest.raises(ValueError, match='start_date is required'):
+        IntervalCronTrigger(days=1, timezone=timezone)
+
+
+def test_negative_interval_raises():
+    now = timezone.localize(datetime(2020, 2, 1, 0, 0))
+    with pytest.raises(ValueError, match='must be >= 0'):
+        IntervalCronTrigger(days=-1, start_date=now, timezone=timezone)
+    with pytest.raises(ValueError, match='must be >= 0'):
+        IntervalCronTrigger(weeks=-1, start_date=now, timezone=timezone)
+    with pytest.raises(ValueError, match='must be >= 0'):
+        IntervalCronTrigger(months=-1, start_date=now, timezone=timezone)
+
+
+def test_zero_interval_without_cron_raises():
+    now = timezone.localize(datetime(2020, 2, 1, 0, 0))
+    with pytest.raises(ValueError, match='At least one of months, weeks, or days'):
+        IntervalCronTrigger(start_date=now, timezone=timezone)
+
+
+def test_zero_interval_with_day_defaults_to_one_month():
+    now = timezone.localize(datetime(2020, 2, 1, 0, 0))
+    trigger = IntervalCronTrigger(day='13', hour=2, start_date=now, timezone=timezone)
+
+    from dateutil.relativedelta import relativedelta
+    assert trigger.interval == relativedelta(months=1)
+
+    expected = timezone.localize(datetime(2020, 2, 13, 2, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert expected == actual
+
+    expected = timezone.localize(datetime(2020, 3, 13, 2, 0))
+    actual = trigger.get_next_fire_time(actual, actual)
+    assert expected == actual
+
+
+def test_zero_interval_with_day_of_week_defaults_to_one_week():
+    now = timezone.localize(datetime(2020, 2, 1, 0, 0))
+    trigger = IntervalCronTrigger(day_of_week='mon', hour=2, start_date=now, timezone=timezone)
+
+    from dateutil.relativedelta import relativedelta
+    assert trigger.interval == relativedelta(weeks=1)
+
+    expected = timezone.localize(datetime(2020, 2, 3, 2, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert expected == actual
+
+    expected = timezone.localize(datetime(2020, 2, 10, 2, 0))
+    actual = trigger.get_next_fire_time(actual, actual)
+    assert expected == actual
+
 def test_1_weeks_mon():
     now = timezone.localize(datetime(2020, 2, 1, 0, 0))
     trigger = IntervalCronTrigger(weeks=1, day_of_week='mon', hour=2, start_date=now, timezone=timezone)

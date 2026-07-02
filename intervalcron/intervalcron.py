@@ -45,7 +45,23 @@ class IntervalCronTrigger(BaseTrigger):
                  start_date=None, end_date=None, timezone=None, jitter=None
                 ):
         # Pre-requisites
-        assert not (start_date is None)
+        if start_date is None:
+            raise ValueError('start_date is required')
+
+        if months < 0 or weeks < 0 or days < 0:
+            raise ValueError('months, weeks, and days must be >= 0')
+
+        # Zero interval: imply a step from cron fields, or fail (avoids infinite loop)
+        if months == 0 and weeks == 0 and days == 0:
+            if day is not None:
+                months = 1
+            elif day_of_week is not None:
+                weeks = 1
+            else:
+                raise ValueError(
+                    'At least one of months, weeks, or days must be > 0 '
+                    '(or set day / day_of_week to imply a monthly/weekly interval)'
+                )
 
         # Extract timezone info
         if timezone:
