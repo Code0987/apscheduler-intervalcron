@@ -135,6 +135,45 @@ def test_fifteenth_and_friday_skips_non_matching_months():
     assert expected == actual
 
 
+
+def test_timezone_string():
+    trigger = IntervalCronTrigger(days=1, hour=2, start_date='2020-02-01', timezone='UTC')
+    now = timezone.localize(datetime(2020, 2, 1, 0, 0))
+    expected = timezone.localize(datetime(2020, 2, 2, 2, 0))
+    assert trigger.get_next_fire_time(None, now) == expected
+
+
+def test_timezone_zoneinfo():
+    from zoneinfo import ZoneInfo
+    z = ZoneInfo('UTC')
+    start = datetime(2020, 2, 1, tzinfo=z)
+    trigger = IntervalCronTrigger(days=1, hour=2, start_date=start, timezone=z)
+    expected = datetime(2020, 2, 2, 2, 0, tzinfo=z)
+    assert trigger.get_next_fire_time(None, start) == expected
+
+
+def test_dst_keeps_wall_clock_hour():
+    """After spring-forward, schedule must stay at hour=2 (not permanently shift to 3)."""
+    nyt = pytz.timezone('America/New_York')
+    start = nyt.localize(datetime(2020, 3, 1, 0, 0))
+    trigger = IntervalCronTrigger(days=1, hour=2, start_date=start, timezone=nyt)
+
+    # Day before DST: 2am EST
+    now = nyt.localize(datetime(2020, 3, 7, 0, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert actual == nyt.localize(datetime(2020, 3, 7, 2, 0))
+
+    # Day after DST gap: still 2am (EDT), not stuck at 3am
+    now = nyt.localize(datetime(2020, 3, 9, 0, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert actual.hour == 2
+    assert actual == nyt.localize(datetime(2020, 3, 9, 2, 0))
+
+    now = nyt.localize(datetime(2020, 3, 10, 0, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert actual.hour == 2
+
+
 def test_1_weeks_mon():
     now = timezone.localize(datetime(2020, 2, 1, 0, 0))
     trigger = IntervalCronTrigger(weeks=1, day_of_week='mon', hour=2, start_date=now, timezone=timezone)
