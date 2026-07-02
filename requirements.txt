@@ -1,5 +1,7 @@
 apscheduler
 python-dateutil
+tzlocal
+pytz
 pytest
 pycodestyle
 pypandoc

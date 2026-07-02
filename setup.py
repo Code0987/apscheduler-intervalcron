@@ -16,8 +16,16 @@ setup(
     py_modules=['intervalcron'],
     install_requires=[
         'apscheduler',
-        'python-dateutil'
+        'python-dateutil',
+        'tzlocal',
     ],
+    extras_require={
+        'test': [
+            'pytest',
+            'pytz',
+        ],
+    },
+
     test_suite="tests",
     entry_points={
         'apscheduler.triggers': ['intervalcron = intervalcron:IntervalCronTrigger']
