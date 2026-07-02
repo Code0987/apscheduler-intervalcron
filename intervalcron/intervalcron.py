@@ -125,29 +125,31 @@ class IntervalCronTrigger(BaseTrigger):
 
         return cron_fire_time
 
+    # Safety cap when walking intervals looking for a cron match
+    _MAX_CRON_INTERVAL_STEPS = 10000
+
     def get_next_fire_time(self, previous_fire_time, now):
         can_cron = self.can_cron()
 
         # Get interval next fire time
         next_fire_time = self.get_interval_next_fire_time(previous_fire_time, now, can_cron)
 
-        # Cron
+        # Cron: advance intervals until a matching fire time is found.
+        # Never fall back to a bare interval boundary (that may not match day / day_of_week).
         if can_cron:
-            cron_now = max(next_fire_time, now)
+            for _ in range(self._MAX_CRON_INTERVAL_STEPS):
+                if self.end_date is not None and next_fire_time > self.end_date:
+                    return None
 
-            # Get cron next fire time
-            cron_fire_time = self.get_cron_next_fire_time(next_fire_time, cron_now)
+                cron_now = max(next_fire_time, now)
+                cron_fire_time = self.get_cron_next_fire_time(next_fire_time, cron_now)
+                if cron_fire_time is not None:
+                    next_fire_time = cron_fire_time
+                    break
 
-            # Add interval if cron fire time is null
-            # this is for when cron hits last value within interval
-            # so we need to goto next interval
-            if cron_fire_time is None:
                 next_fire_time += self.interval
-                cron_fire_time = self.get_cron_next_fire_time(next_fire_time, next_fire_time)
-
-            # Take final output
-            if not (cron_fire_time is None):
-                next_fire_time = cron_fire_time
+            else:
+                return None
 
         # Apply jitter
         next_fire_time = self._apply_jitter(next_fire_time, self.jitter, now)

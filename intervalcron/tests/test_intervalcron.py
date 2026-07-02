@@ -82,6 +82,59 @@ def test_zero_interval_with_day_of_week_defaults_to_one_week():
     actual = trigger.get_next_fire_time(actual, actual)
     assert expected == actual
 
+
+def test_day_31_skips_short_months():
+    """Months without a 31st must skip to the next 31st, not fire on the 1st."""
+    now = timezone.localize(datetime(2020, 1, 1, 0, 0))
+    trigger = IntervalCronTrigger(months=1, day='31', hour=2, start_date=now, timezone=timezone)
+
+    expected = timezone.localize(datetime(2020, 1, 31, 2, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert expected == actual
+
+    expected = timezone.localize(datetime(2020, 3, 31, 2, 0))
+    actual = trigger.get_next_fire_time(actual, actual)
+    assert expected == actual
+
+    expected = timezone.localize(datetime(2020, 5, 31, 2, 0))
+    actual = trigger.get_next_fire_time(actual, actual)
+    assert expected == actual
+
+    expected = timezone.localize(datetime(2020, 7, 31, 2, 0))
+    actual = trigger.get_next_fire_time(actual, actual)
+    assert expected == actual
+
+
+def test_day_31_from_mid_february():
+    now = timezone.localize(datetime(2020, 2, 15, 0, 0))
+    trigger = IntervalCronTrigger(
+        months=1, day='31', hour=2,
+        start_date=timezone.localize(datetime(2020, 1, 1)),
+        timezone=timezone,
+    )
+    expected = timezone.localize(datetime(2020, 3, 31, 2, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert expected == actual
+
+
+def test_fifteenth_and_friday_skips_non_matching_months():
+    """Require both day=15 and Friday; never return a non-matching interval boundary."""
+    now = timezone.localize(datetime(2020, 1, 1, 0, 0))
+    trigger = IntervalCronTrigger(
+        months=1, day='15', day_of_week='fri', hour=2,
+        start_date=now, timezone=timezone,
+    )
+    # 2020-05-15 is a Friday
+    expected = timezone.localize(datetime(2020, 5, 15, 2, 0))
+    actual = trigger.get_next_fire_time(None, now)
+    assert expected == actual
+
+    # Next Friday the 15th after that is 2021-01-15
+    expected = timezone.localize(datetime(2021, 1, 15, 2, 0))
+    actual = trigger.get_next_fire_time(actual, actual)
+    assert expected == actual
+
+
 def test_1_weeks_mon():
     now = timezone.localize(datetime(2020, 2, 1, 0, 0))
     trigger = IntervalCronTrigger(weeks=1, day_of_week='mon', hour=2, start_date=now, timezone=timezone)
